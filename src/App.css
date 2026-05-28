@@ -1,120 +1,167 @@
 body {
-  margin:0;
-  overflow:hidden;
-  background:#05070b;
-  font-family:Arial;
-  position:fixed;
-  width:100%;
-  height:100%;
+  margin: 0;
+  background: linear-gradient(180deg, #18233a 0%, #0a0f1d 100%);
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+  color: white;
 }
 
-.bg{
-  position:fixed;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  filter:brightness(0.3);
+* {
+  box-sizing: border-box;
 }
 
-.app{
-  width:100vw;
-  height:100vh;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  gap:40px;
+.app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  padding: 20px;
 }
 
-/* 🦄 unicorns */
-.unicorn{
-  position:absolute;
-  font-size:90px;
-  animation: float 3s infinite ease-in-out;
-}
-.u1{top:20px;left:20px}
-.u2{bottom:20px;right:40px}
-
-
-@keyframes float{
-  0%{transform:translateY(0)}
-  50%{transform:translateY(-15px)}
-  100%{transform:translateY(0)}
+.gameWrap {
+  position: relative;
 }
 
-/* PANEL */
-.panel{
-  width:240px;
-  padding:20px;
-  border-radius:18px;
-  background:rgba(0,0,0,0.6);
-  color:rgb(255, 0, 221);
-  backdrop-filter:blur(12px);
+.game {
+  background: linear-gradient(180deg, #1b2945, #0e1728);
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,0.08);
+  box-shadow: 0 30px 90px rgba(0,0,0,0.7),
+    inset 0 0 30px rgba(255,255,255,0.03);
+  image-rendering: pixelated;
 }
 
-h1,h3{text-align:center}
-
-/* stats */
-.stat{
-  display:flex;
-  justify-content:space-between;
-  padding:8px;
-  margin:6px 0;
-  background:rgba(255,255,255,0.05);
-  border-radius:8px;
+.sidePanel {
+  width: 240px;
+  padding: 20px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 15px 50px rgba(0,0,0,0.4);
 }
 
-/* keys */
-.keys{
-  margin-top:10px;
-  padding:10px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
+.sidePanel h2 {
+  margin: 0 0 14px;
+  font-size: 24px;
+  letter-spacing: 2px;
 }
 
-.info{
-  font-size:12px;
-  opacity:0.7;
-  margin:10px 0;
+.stat {
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
 }
 
-/* GAME */
-.game-wrap{
-  position:relative;
+.stat span {
+  font-size: 12px;
+  opacity: 0.7;
+  letter-spacing: 1px;
 }
 
-.game{
-  background:#525050;
-  border-radius:10px;
+.stat h3 {
+  margin: 8px 0 0;
+  font-size: 28px;
 }
 
-/* overlay */
-.over{
-  position:absolute;
-  inset:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:40px;
-  color:red;
-  background:rgba(0,0,0,0.7);
+/* NEW FEATURE BOX */
+.goalBox {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
-/* message */
-.msg{
-  position:absolute;
-  top:-40px;
-  left:50%;
-  transform:translateX(-50%);
-  color:white;
+.goalBox p {
+  margin: 6px 0;
+  font-size: 13px;
+  opacity: 0.85;
 }
 
-/* button */
-button{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
+.next {
+  width: 140px;
+  height: 140px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #18253e, #101827);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(10px);
+}
+
+.menu h1 {
+  font-size: 70px;
+  margin: 0 0 20px;
+  letter-spacing: 8px;
+}
+
+.menu button {
+  width: 220px;
+  height: 64px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.gameOver {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.7);
+  font-size: 50px;
+  font-weight: bold;
+}
+
+.mobileControls {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .sidePanel {
+    width: 92vw;
+  }
+
+  .game {
+    width: 92vw;
+  }
+
+  .mobileControls {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .mobileControls button {
+    width: 70px;
+    height: 70px;
+    font-size: 26px;
+    border-radius: 16px;
+    background: #1f2a44;
+    color: white;
+  }
 }

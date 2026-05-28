@@ -1,48 +1,80 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
-import weekend4 from "./assets/weekend4.jpg";
-
 const COLS = 10;
 const ROWS = 20;
 const BLOCK = 32;
 
-const COLORS = {
-  1: "#4cc9f0",
-  2: "#4361ee",
-  3: "#f8961e",
-  4: "#f9c74f",
-  5: "#43aa8b",
-  6: "#9b5de5",
-  7: "#f94144",
-};
+const COLORS = [
+  null,
+  "#00cfff",
+  "#005eff",
+  "#ff8a00",
+  "#ffe600",
+  "#00ff8c",
+  "#c000ff",
+  "#ff003c",
+];
 
 const PIECES = [
-  [[1,1,1,1]],
-  [[2,0,0],[2,2,2]],
-  [[0,0,3],[3,3,3]],
-  [[4,4],[4,4]],
-  [[0,5,5],[5,5,0]],
-  [[0,6,0],[6,6,6]],
-  [[7,7,0],[0,7,7]],
+  [[1, 1, 1, 1]],
+  [[2, 0, 0], [2, 2, 2]],
+  [[0, 0, 3], [3, 3, 3]],
+  [[4, 4], [4, 4]],
+  [[0, 5, 5], [5, 5, 0]],
+  [[0, 6, 0], [6, 6, 6]],
+  [[7, 7, 0], [0, 7, 7]],
 ];
 
 export default function App() {
   const canvasRef = useRef(null);
   const nextRef = useRef(null);
 
+  const boardRef = useRef(
+    Array.from({ length: ROWS }, () => Array(COLS).fill(0))
+  );
+
+  const playerRef = useRef({
+    x: 0,
+    y: 0,
+    matrix: null,
+  });
+
+  const nextPieceRef = useRef(null);
+
+  const audio = useRef({
+    move: null,
+    rotate: null,
+    drop: null,
+    clear: null,
+    gameOver: null,
+  });
+
+  const animationRef = useRef(null);
+
   const [started, setStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
 
   const [score, setScore] = useState(0);
-  const [rows, setRows] = useState(0);
+  const [lines, setLines] = useState(0);
   const [level, setLevel] = useState(1);
 
-  const [msg, setMsg] = useState("");
+  const [targetLines, setTargetLines] = useState(5);
+
+  function playSound(name) {
+    const s = audio.current[name];
+    if (!s) return;
+    s.currentTime = 0;
+    s.play().catch(() => {});
+  }
+
+  function randomPiece() {
+    return JSON.parse(
+      JSON.stringify(PIECES[Math.floor(Math.random() * PIECES.length)])
+    );
+  }
 
   useEffect(() => {
-    if (!started || gameOver) return;
-
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
@@ -52,36 +84,22 @@ export default function App() {
     canvas.width = COLS * BLOCK;
     canvas.height = ROWS * BLOCK;
 
-    nextCanvas.width = 160;
-    nextCanvas.height = 160;
+    nextCanvas.width = 140;
+    nextCanvas.height = 140;
 
-    const board = Array.from({ length: ROWS }, () =>
-      Array(COLS).fill(0)
-    );
+    const board = boardRef.current;
+    const player = playerRef.current;
 
-    const moveSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3");
-    const rotateSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
-    const dropSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3");
-    const clearSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2030/2030-preview.mp3");
+    let lastTime = 0;
+    let dropCounter = 0;
 
-    let nextPiece = create();
-    const player = { x:0,y:0,m:null };
+    let dropInterval = 800;
 
-    let drop = 0;
-    let last = 0;
-
-    function create() {
-      return JSON.parse(JSON.stringify(PIECES[Math.floor(Math.random()*PIECES.length)]));
-    }
-
-    function collide(px,py,m) {
-      for(let y=0;y<m.length;y++){
-        for(let x=0;x<m[y].length;x++){
-          if(m[y][x]){
-            let nx = px+x;
-            let ny = py+y;
-            if(nx<0||nx>=COLS||ny>=ROWS) return true;
-            if(ny>=0 && board[ny][nx]) return true;
+    function collide(x, y, m) {
+      for (let r = 0; r < m.length; r++) {
+        for (let c = 0; c < m[r].length; c++) {
+          if (m[r][c] && (board[r + y] && board[r + y][c + x]) !== 0) {
+            return true;
           }
         }
       }
@@ -89,208 +107,236 @@ export default function App() {
     }
 
     function spawn() {
-      player.m = nextPiece;
-      nextPiece = create();
+      player.matrix = nextPieceRef.current || randomPiece();
+      nextPieceRef.current = randomPiece();
 
       player.y = 0;
-      player.x = Math.floor(COLS/2-player.m[0].length/2);
-
-      if(collide(player.x,player.y,player.m)) setGameOver(true);
+      player.x = Math.floor((COLS - player.matrix[0].length) / 2);
 
       drawNext();
+
+      if (collide(player.x, player.y, player.matrix)) {
+        setGameOver(true);
+        playSound("gameOver");
+      }
     }
 
-    function merge(){
-      player.m.forEach((r,y)=>{
-        r.forEach((v,x)=>{
-          if(v) board[y+player.y][x+player.x]=v;
+    function merge() {
+      player.matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) board[y + player.y][x + player.x] = v;
         });
       });
     }
 
-    function rotate(m){
-      return m[0].map((_,i)=>m.map(r=>r[i]).reverse());
+    function rotate(m) {
+      return m[0].map((_, i) => m.map(r => r[i]).reverse());
     }
 
-    function rotateP(){
-      const r = rotate(player.m);
-      const ox = player.x;
-      player.m = r;
-
-      let off = 1;
-      while(collide(player.x,player.y,player.m)){
-        player.x += off;
-        off = -(off + (off>0?1:-1));
-        if(off>player.m[0].length){
-          player.m = rotate(rotate(rotate(player.m)));
-          player.x = ox;
-          return;
-        }
+    function rotatePiece() {
+      const rotated = rotate(player.matrix);
+      if (!collide(player.x, player.y, rotated)) {
+        player.matrix = rotated;
+        playSound("rotate");
       }
-      rotateSound.play();
     }
 
-    function clear(){
-      let c=0;
-      for(let y=ROWS-1;y>=0;y--){
-        if(board[y].every(v=>v)){
-          board.splice(y,1);
-          board.unshift(Array(COLS).fill(0));
-          c++; y++;
+    function clearLines() {
+      let cleared = 0;
+
+      outer: for (let y = ROWS - 1; y >= 0; y--) {
+        for (let x = 0; x < COLS; x++) {
+          if (!board[y][x]) continue outer;
         }
+
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(0));
+        cleared++;
+        y++;
       }
 
-      if(c){
-        clearSound.play();
-        setRows(r=>{
-          const nr=r+c;
-          setLevel(Math.floor(nr/10)+1);
-          return nr;
+      if (cleared > 0) {
+        playSound("clear");
+
+        const table = [0, 100, 300, 500, 800];
+
+        setScore(s => s + table[cleared] * level);
+
+        setLines(prev => {
+          const newLines = prev + cleared;
+
+          const needed = targetLines;
+
+          if (newLines >= needed) {
+            setLevel(l => l + 1);
+            setTargetLines(t => t + 5);
+            dropInterval = Math.max(120, dropInterval - 80);
+          }
+
+          return newLines;
         });
-        setScore(s=>s+c*200);
-        setMsg("ROW CLEARED");
-        setTimeout(()=>setMsg(""),800);
       }
     }
 
-    function dropP(){
+    function move(dir) {
+      player.x += dir;
+      if (collide(player.x, player.y, player.matrix)) player.x -= dir;
+      else playSound("move");
+    }
+
+    function drop() {
       player.y++;
-      if(collide(player.x,player.y,player.m)){
+
+      if (collide(player.x, player.y, player.matrix)) {
         player.y--;
         merge();
-        clear();
+        clearLines();
         spawn();
+        playSound("drop");
       }
-      drop=0;
     }
 
-    function hard(){
-      while(!collide(player.x,player.y+1,player.m)) player.y++;
-      dropSound.play();
-      merge(); clear(); spawn();
+    function hardDrop() {
+      while (!collide(player.x, player.y + 1, player.matrix)) {
+        player.y++;
+      }
+
+      merge();
+      clearLines();
+      spawn();
+      playSound("drop");
     }
 
-    function move(d){
-      player.x+=d;
-      if(collide(player.x,player.y,player.m)) player.x-=d;
-      moveSound.play();
-    }
-
-    function ghost(){
-      let y=player.y;
-      while(!collide(player.x,y+1,player.m)) y++;
+    function ghostY() {
+      let y = player.y;
+      while (!collide(player.x, y + 1, player.matrix)) y++;
       return y;
     }
 
-    function drawBlock(c,x,y,v,a=1){
-      const px=x*BLOCK, py=y*BLOCK;
-      c.globalAlpha=a;
+    function drawBlock(x, y, v, alpha = 1) {
+      const px = x * BLOCK;
+      const py = y * BLOCK;
 
-      c.fillStyle=COLORS[v];
-      c.fillRect(px,py,BLOCK,BLOCK);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = COLORS[v];
+      ctx.fillRect(px, py, BLOCK, BLOCK);
 
-      c.fillStyle="rgba(255,255,255,0.25)";
-      c.fillRect(px+2,py+2,BLOCK-4,6);
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.strokeRect(px, py, BLOCK, BLOCK);
 
-      c.fillStyle="rgba(0,0,0,0.25)";
-      c.fillRect(px+2,py+BLOCK-8,BLOCK-4,6);
-
-      c.globalAlpha=1;
+      ctx.globalAlpha = 1;
     }
 
-    function drawM(c,m,ox,oy,a=1){
-      m.forEach((r,y)=>r.forEach((v,x)=>v&&drawBlock(c,ox+x,oy+y,v,a)));
+    function draw() {
+      ctx.fillStyle = "#0b1020";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      board.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) drawBlock(x, y, v);
+        });
+      });
+
+      const gy = ghostY();
+
+      player.matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) drawBlock(x + player.x, y + gy, v, 0.2);
+        });
+      });
+
+      player.matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) drawBlock(x + player.x, y + player.y, v);
+        });
+      });
     }
 
-    function draw(){
-      ctx.fillStyle="#0d1218";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
+    function drawNext() {
+      nctx.fillStyle = "#111827";
+      nctx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
 
-      drawM(ctx,board,0,0);
-      drawM(ctx,player.m,player.x,ghost(),0.2);
-      drawM(ctx,player.m,player.x,player.y);
+      nextPieceRef.current.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) {
+            nctx.fillStyle = COLORS[v];
+            nctx.fillRect((x + 1) * 28, (y + 1) * 28, 28, 28);
+          }
+        });
+      });
     }
 
-    function drawNext(){
-      nctx.clearRect(0,0,160,160);
-      drawM(nctx,nextPiece,2,2);
-    }
+    function update(time = 0) {
+      if (!started || gameOver) return;
 
-    function loop(t=0){
-      const d=t-last; last=t; drop+=d;
-      if(drop>600-level*50) dropP();
+      const delta = time - lastTime;
+      lastTime = time;
+
+      dropCounter += delta;
+
+      if (dropCounter > dropInterval) {
+        drop();
+        dropCounter = 0;
+      }
+
       draw();
-      requestAnimationFrame(loop);
+      animationRef.current = requestAnimationFrame(update);
     }
 
-    function key(e){
-      if(gameOver) return;
-      if(e.code==="ArrowLeft") move(-1);
-      if(e.code==="ArrowRight") move(1);
-      if(e.code==="ArrowDown") dropP();
-      if(e.code==="ArrowUp") rotateP();
-      if(e.code==="Space") hard();
+    function key(e) {
+      if (!started || gameOver) return;
+
+      if (e.key === "ArrowLeft") move(-1);
+      if (e.key === "ArrowRight") move(1);
+      if (e.key === "ArrowDown") drop();
+      if (e.key === "ArrowUp") rotatePiece();
+      if (e.key === " ") hardDrop();
     }
 
-    document.addEventListener("keydown",key);
+    window.addEventListener("keydown", key);
 
-    spawn(); loop();
+    audio.current.move = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+    audio.current.rotate = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+    audio.current.drop = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
+    audio.current.clear = new Audio("https://actions.google.com/sounds/v1/cartoon/ta_da.ogg");
+    audio.current.gameOver = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
-    return ()=>document.removeEventListener("keydown",key);
+    if (started) {
+      spawn();
+      update();
+    }
 
-  },[started,gameOver,level]);
-
-  const nextRows = 10-(rows%10);
+    return () => {
+      window.removeEventListener("keydown", key);
+      cancelAnimationFrame(animationRef.current);
+    };
+  }, [started, gameOver, level]);
 
   return (
     <div className="app">
-
-      <img src={weekend4} className="bg"/>
-
-      {/* 🦄 unicorns */}
-      <div className="unicorn u1">🦄</div>
-      <div className="unicorn u2">🦄</div>
-      <div className="unicorn u3">🦄</div>
-      <div className="unicorn u4">🦄</div>
-  
-
-      <div className="panel left">
-        <h1>CODED BY A TETRIS V1</h1>
-
-        <div className="stat">ROWS <b>{rows}</b></div>
-        <div className="stat">LEVEL <b>{level}</b></div>
-        <div className="stat">NEXT LVL <b>{nextRows}</b></div>
-        <div className="stat">SCORE <b>{score}</b></div>
-
-        <div className="keys">
-          <h3>KEYBINDS</h3>
-          <p>← → Move</p>
-          <p>↑ Rotate</p>
-          <p>↓ Drop</p>
-          <p>SPACE Hard Drop</p>
+      {!started && (
+        <div className="menu">
+          <h1>TETRIS</h1>
+          <button onClick={() => setStarted(true)}>PLAY</button>
         </div>
+      )}
 
-        <div className="info">
-          Clear rows to level up and gain points.
-        </div>
-
-        {!started && <button onClick={()=>setStarted(true)}>START</button>}
+      <div className="sidePanel">
+        <h2>TETRIS</h2>
+        <p>Score: {score}</p>
+        <p>Lines: {lines} / {targetLines}</p>
+        <p>Level: {level}</p>
       </div>
 
-      <div className="game-wrap">
-
-        {msg && <div className="msg">{msg}</div>}
-
-        {gameOver && <div className="over">GAME LOST WOMP! </div>}
-
-        <canvas ref={canvasRef} className="game"/>
+      <div className="gameWrap">
+        <canvas ref={canvasRef} className="game" />
+        {gameOver && <div className="gameOver">GAME OVER</div>}
       </div>
 
-      <div className="panel right">
-        <h3>NEXT</h3>
-        <canvas ref={nextRef}/>
+      <div className="sidePanel">
+        <h2>NEXT</h2>
+        <canvas ref={nextRef} className="next" />
       </div>
-
     </div>
   );
 }
