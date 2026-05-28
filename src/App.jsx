@@ -5,24 +5,32 @@ const COLS = 10;
 const ROWS = 20;
 const BLOCK = 32;
 
+// REAL classic-ish Tetris colors (clean + consistent)
 const COLORS = [
   null,
-  "#00cfff",
-  "#005eff",
-  "#ff8a00",
-  "#ffe600",
-  "#00ff8c",
-  "#c000ff",
-  "#ff003c",
+  "#00f0f0", // I
+  "#0000f0", // J
+  "#f0a000", // L
+  "#f0f000", // O
+  "#00f000", // S
+  "#a000f0", // T
+  "#f00000", // Z
 ];
 
+// classic pieces
 const PIECES = [
   [[1, 1, 1, 1]],
+
   [[2, 0, 0], [2, 2, 2]],
+
   [[0, 0, 3], [3, 3, 3]],
+
   [[4, 4], [4, 4]],
+
   [[0, 5, 5], [5, 5, 0]],
+
   [[0, 6, 0], [6, 6, 6]],
+
   [[7, 7, 0], [0, 7, 7]],
 ];
 
@@ -34,23 +42,12 @@ export default function App() {
     Array.from({ length: ROWS }, () => Array(COLS).fill(0))
   );
 
-  const playerRef = useRef({
-    x: 0,
-    y: 0,
-    matrix: null,
-  });
-
+  const playerRef = useRef({ x: 0, y: 0, matrix: null });
   const nextPieceRef = useRef(null);
 
-  const audio = useRef({
-    move: null,
-    rotate: null,
-    drop: null,
-    clear: null,
-    gameOver: null,
-  });
+  const animRef = useRef(null);
 
-  const animationRef = useRef(null);
+  const audio = useRef({});
 
   const [started, setStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -58,15 +55,7 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [lines, setLines] = useState(0);
   const [level, setLevel] = useState(1);
-
-  const [targetLines, setTargetLines] = useState(5);
-
-  function playSound(name) {
-    const s = audio.current[name];
-    if (!s) return;
-    s.currentTime = 0;
-    s.play().catch(() => {});
-  }
+  const [target, setTarget] = useState(5);
 
   function randomPiece() {
     return JSON.parse(
@@ -90,15 +79,26 @@ export default function App() {
     const board = boardRef.current;
     const player = playerRef.current;
 
-    let lastTime = 0;
     let dropCounter = 0;
-
+    let lastTime = 0;
     let dropInterval = 800;
 
+    // FIXED COLLISION (this was one of your main bugs)
     function collide(x, y, m) {
       for (let r = 0; r < m.length; r++) {
         for (let c = 0; c < m[r].length; c++) {
-          if (m[r][c] && (board[r + y] && board[r + y][c + x]) !== 0) {
+          if (!m[r][c]) continue;
+
+          const ny = r + y;
+          const nx = c + x;
+
+          if (
+            ny < 0 ||
+            ny >= ROWS ||
+            nx < 0 ||
+            nx >= COLS ||
+            board[ny][nx]
+          ) {
             return true;
           }
         }
@@ -117,13 +117,13 @@ export default function App() {
 
       if (collide(player.x, player.y, player.matrix)) {
         setGameOver(true);
-        playSound("gameOver");
+        audio.current.gameOver?.play();
       }
     }
 
     function merge() {
-      player.matrix.forEach((row, y) => {
-        row.forEach((v, x) => {
+      player.matrix.forEach((r, y) => {
+        r.forEach((v, x) => {
           if (v) board[y + player.y][x + player.x] = v;
         });
       });
@@ -137,7 +137,7 @@ export default function App() {
       const rotated = rotate(player.matrix);
       if (!collide(player.x, player.y, rotated)) {
         player.matrix = rotated;
-        playSound("rotate");
+        audio.current.rotate?.play();
       }
     }
 
@@ -151,37 +151,37 @@ export default function App() {
 
         board.splice(y, 1);
         board.unshift(Array(COLS).fill(0));
+
         cleared++;
         y++;
       }
 
-      if (cleared > 0) {
-        playSound("clear");
-
+      if (cleared) {
         const table = [0, 100, 300, 500, 800];
 
         setScore(s => s + table[cleared] * level);
+        setLines(l => {
+          const n = l + cleared;
 
-        setLines(prev => {
-          const newLines = prev + cleared;
+          const need = target;
 
-          const needed = targetLines;
-
-          if (newLines >= needed) {
-            setLevel(l => l + 1);
-            setTargetLines(t => t + 5);
-            dropInterval = Math.max(120, dropInterval - 80);
+          if (n >= need) {
+            setLevel(v => v + 1);
+            setTarget(t => t + 5);
+            dropInterval = Math.max(100, dropInterval - 70);
           }
 
-          return newLines;
+          return n;
         });
+
+        audio.current.clear?.play();
       }
     }
 
     function move(dir) {
       player.x += dir;
       if (collide(player.x, player.y, player.matrix)) player.x -= dir;
-      else playSound("move");
+      else audio.current.move?.play();
     }
 
     function drop() {
@@ -192,7 +192,7 @@ export default function App() {
         merge();
         clearLines();
         spawn();
-        playSound("drop");
+        audio.current.drop?.play();
       }
     }
 
@@ -200,11 +200,10 @@ export default function App() {
       while (!collide(player.x, player.y + 1, player.matrix)) {
         player.y++;
       }
-
       merge();
       clearLines();
       spawn();
-      playSound("drop");
+      audio.current.drop?.play();
     }
 
     function ghostY() {
@@ -213,16 +212,14 @@ export default function App() {
       return y;
     }
 
-    function drawBlock(x, y, v, alpha = 1) {
-      const px = x * BLOCK;
-      const py = y * BLOCK;
+    function drawBlock(x, y, v, a = 1) {
+      ctx.globalAlpha = a;
 
-      ctx.globalAlpha = alpha;
       ctx.fillStyle = COLORS[v];
-      ctx.fillRect(px, py, BLOCK, BLOCK);
+      ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
 
-      ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.strokeRect(px, py, BLOCK, BLOCK);
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.strokeRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
 
       ctx.globalAlpha = 1;
     }
@@ -231,22 +228,22 @@ export default function App() {
       ctx.fillStyle = "#0b1020";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      board.forEach((row, y) => {
-        row.forEach((v, x) => {
+      board.forEach((r, y) => {
+        r.forEach((v, x) => {
           if (v) drawBlock(x, y, v);
         });
       });
 
       const gy = ghostY();
 
-      player.matrix.forEach((row, y) => {
-        row.forEach((v, x) => {
-          if (v) drawBlock(x + player.x, y + gy, v, 0.2);
+      player.matrix.forEach((r, y) => {
+        r.forEach((v, x) => {
+          if (v) drawBlock(x + player.x, y + gy, v, 0.25);
         });
       });
 
-      player.matrix.forEach((row, y) => {
-        row.forEach((v, x) => {
+      player.matrix.forEach((r, y) => {
+        r.forEach((v, x) => {
           if (v) drawBlock(x + player.x, y + player.y, v);
         });
       });
@@ -256,8 +253,8 @@ export default function App() {
       nctx.fillStyle = "#111827";
       nctx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
 
-      nextPieceRef.current.forEach((row, y) => {
-        row.forEach((v, x) => {
+      nextPieceRef.current.forEach((r, y) => {
+        r.forEach((v, x) => {
           if (v) {
             nctx.fillStyle = COLORS[v];
             nctx.fillRect((x + 1) * 28, (y + 1) * 28, 28, 28);
@@ -280,7 +277,7 @@ export default function App() {
       }
 
       draw();
-      animationRef.current = requestAnimationFrame(update);
+      animRef.current = requestAnimationFrame(update);
     }
 
     function key(e) {
@@ -295,11 +292,12 @@ export default function App() {
 
     window.addEventListener("keydown", key);
 
-    audio.current.move = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-    audio.current.rotate = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
-    audio.current.drop = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
-    audio.current.clear = new Audio("https://actions.google.com/sounds/v1/cartoon/ta_da.ogg");
-    audio.current.gameOver = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+    // REAL TETRIS STYLE AUDIO (better than random Google sounds)
+    audio.current.move = new Audio("https://cdn.freesound.org/previews/341/341695_6261199-lq.mp3");
+    audio.current.rotate = new Audio("https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3");
+    audio.current.drop = new Audio("https://cdn.freesound.org/previews/341/341695_6261199-lq.mp3");
+    audio.current.clear = new Audio("https://cdn.freesound.org/previews/198/198841_285997-lq.mp3");
+    audio.current.gameOver = new Audio("https://cdn.freesound.org/previews/331/331912_3248244-lq.mp3");
 
     if (started) {
       spawn();
@@ -308,9 +306,9 @@ export default function App() {
 
     return () => {
       window.removeEventListener("keydown", key);
-      cancelAnimationFrame(animationRef.current);
+      cancelAnimationFrame(animRef.current);
     };
-  }, [started, gameOver, level]);
+  }, [started, gameOver, level, target]);
 
   return (
     <div className="app">
@@ -324,7 +322,7 @@ export default function App() {
       <div className="sidePanel">
         <h2>TETRIS</h2>
         <p>Score: {score}</p>
-        <p>Lines: {lines} / {targetLines}</p>
+        <p>Lines: {lines} / {target}</p>
         <p>Level: {level}</p>
       </div>
 
