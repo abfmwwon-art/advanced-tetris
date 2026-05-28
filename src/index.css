@@ -1,0 +1,69 @@
+body {
+  margin: 0;
+  background: #0b0f1a;
+  font-family: Arial, sans-serif;
+  color: white;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 25px;
+  padding: 20px;
+}
+
+/* LEFT PANEL */
+.side {
+  width: 180px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.side h1 {
+  font-size: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+}
+
+.side p {
+  margin: 6px 0;
+  opacity: 0.8;
+}
+
+/* GAME CANVAS */
+.game {
+  background: #111827;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* NEXT PREVIEW */
+.next {
+  width: 120px;
+  height: 120px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+}
+
+/* BUTTON */
+button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #374151;
+}
